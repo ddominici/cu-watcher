@@ -1,0 +1,43 @@
+db:
+  connectionString: "${DB_CONNECTION_STRING}"
+
+scraper:
+  userAgent: "CUWatcher/1.0 (+contact: info@yourdomain.com)"
+  timeoutSeconds: 60
+  maxConcurrency: 4
+  delayBetweenRequestsMs: 250
+  followKbLinks: true
+  maxKbToFetch: 500
+  since: "2017-01-01"
+
+sources:
+  - key: "sql2025"
+    majorVersion: 2025
+    url: "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2025/build-versions"
+  - key: "sql2022"
+    majorVersion: 2022
+    url: "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2022/build-versions"
+  - key: "sql2019"
+    majorVersion: 2019
+    url: "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/build-versions"
+  - key: "sql2017"
+    majorVersion: 2017
+    url: "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2017/build-versions"
+
+logging:
+  level: "info"
+  file: "logs/cu-watcher.log"
+  maxSizeMB: 50
+  maxBackups: 10
+  maxAgeDays: 14
+
+email:
+  enabled: false
+  from: "${EMAIL_FROM}"
+  to:
+    - "${EMAIL_TO}"
+  smtpHost: "${EMAIL_SMTP_HOST}"
+  smtpPort: 465
+  username: "${EMAIL_USERNAME}"
+  password: "${EMAIL_PASSWORD}"
+  useTLS: true    # true = implicit TLS (port 465), false = STARTTLS (port 587)
