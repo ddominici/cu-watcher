@@ -147,6 +147,7 @@ All flags override the corresponding value in the config file.
 | `--since` | *(from config)* | Filter rows with `ReleaseDate >= YYYY-MM-DD` |
 | `--log-level` | *(from config)* | Override log level |
 | `--log-file` | *(from config)* | Override log file path |
+| `--notify-latest` | `false` | Send email with the latest CU/GDR per SQL version currently in the DB |
 
 ### Examples
 
@@ -159,6 +160,9 @@ All flags override the corresponding value in the config file.
 
 # Use a different connection string without changing the config
 ./cu-watcher --connection "sqlserver://sa:pass@localhost?database=test&trustservercertificate=true"
+
+# Send a digest email with the latest CU/GDR currently stored in the DB (no scraping)
+./cu-watcher --notify-latest
 ```
 
 ### Scheduling (Linux/macOS)
@@ -189,7 +193,7 @@ cu-watcher/
     │   ├── models.go            # BuildRow, KbArticle, KbFileRecord
     │   ├── build_versions.go    # parser for Microsoft Learn "build versions" pages
     │   ├── kb_article.go        # parser for KB articles (title, sections, links, dates)
-    │   ├── kb_files.go          # CSV link extraction and KB file list parsing
+    │   ├── kb_files.go          # CSV link extraction, CSV and HTML KB file list parsing
     │   └── util.go              # helpers: clean, parseLearnDate, absURL, ...
     ├── db/
     │   ├── repo.go              # Repository: all database operations
@@ -225,9 +229,9 @@ main()
  │   ├─ ParseKbArticle → KbArticle
  │   ├─ UpsertKbArticle → dbo.KbArticles
  │   ├─ HasKbFiles? → skip if already present
- │   ├─ ExtractKbFilesCSVLink → CSV file list URL
- │   ├─ GET CSV from download.microsoft.com
- │   ├─ ParseKbFilesCSV → []KbFileRecord (strip UTF-8 BOM)
+ │   ├─ ExtractKbFilesCSVLink → CSV file list URL (SQL 2022/2025)
+ │   │   ├─ [CSV found] GET CSV → ParseKbFilesCSV → []KbFileRecord (strip UTF-8 BOM)
+ │   │   └─ [no CSV]    ParseKbFilesHTML → []KbFileRecord (SQL 2019/2017 embedded tables)
  │   └─ InsertKbFileRecords → dbo.KbPackageFiles
  │
  └─ SendNewReleases → SMTP email (only if enabled and new rows exist)
@@ -247,6 +251,12 @@ EMAIL_SMTP_HOST=…         →    smtpHost: "${EMAIL_SMTP_HOST}"
 ```
 
 Resolution priority: **system environment** > `.env` > literal value in `config.yaml`.
+
+### Email notifications
+
+- **`SendNewReleases`**: sent automatically at the end of every run if `email.enabled = true` and new build rows were detected.
+- **`SendLatestBuilds`**: sent when `--notify-latest` is passed; emails a snapshot of the latest CU/GDR per SQL version currently stored in the DB, regardless of whether new rows were found.
+- Both functions are no-ops when `email.enabled = false` or the recipient list is empty.
 
 ### Deduplication
 
