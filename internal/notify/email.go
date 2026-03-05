@@ -40,6 +40,41 @@ func SendNewReleases(cfg EmailConfig, rows []parse.BuildRow) error {
 	return sendSTARTTLS(addr, cfg, msg)
 }
 
+// SendLatestBuilds emails a snapshot of the latest CU/GDR currently in the DB.
+// It is a no-op when cfg.Enabled is false or rows is empty.
+func SendLatestBuilds(cfg EmailConfig, rows []parse.BuildRow) error {
+	if !cfg.Enabled || len(rows) == 0 || len(cfg.To) == 0 {
+		return nil
+	}
+	subject := fmt.Sprintf("CU Watcher: latest SQL Server updates (%d source(s))", len(rows))
+	msg := buildMessage(cfg.From, cfg.To, subject, buildLatestBody(rows))
+	addr := fmt.Sprintf("%s:%d", cfg.SMTPHost, cfg.SMTPPort)
+	if cfg.UseTLS {
+		return sendTLS(addr, cfg, msg)
+	}
+	return sendSTARTTLS(addr, cfg, msg)
+}
+
+func buildLatestBody(rows []parse.BuildRow) string {
+	var sb strings.Builder
+	sb.WriteString("Latest available SQL Server CU/GDR updates:\n\n")
+	for _, r := range rows {
+		date := "N/A"
+		if r.ReleaseDate != nil {
+			date = r.ReleaseDate.Format("2006-01-02")
+		}
+		fmt.Fprintf(&sb, "  • [SQL %d] %s — %s\n", r.MajorVersion, r.Topic, r.UpdateName)
+		fmt.Fprintf(&sb, "    Build:    %s\n", r.SqlBuild)
+		fmt.Fprintf(&sb, "    KB:       %s\n", r.KbNumber)
+		fmt.Fprintf(&sb, "    Released: %s\n", date)
+		if r.KbURL != "" {
+			fmt.Fprintf(&sb, "    URL:      %s\n", r.KbURL)
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
 func buildBody(rows []parse.BuildRow) string {
 	var sb strings.Builder
 	sb.WriteString("The following new SQL Server fixes/CUs have been detected:\n\n")

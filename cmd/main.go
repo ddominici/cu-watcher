@@ -25,11 +25,12 @@ type cliOptions struct {
 	Connection string
 	InitDB     bool
 	Only       string
-	FollowKB   *bool
-	MaxKB      int
-	Since      string
-	LogLevel   string
-	LogFile    string
+	FollowKB     *bool
+	MaxKB        int
+	Since        string
+	LogLevel     string
+	LogFile      string
+	NotifyLatest bool
 }
 
 func main() {
@@ -43,6 +44,7 @@ func main() {
 	pflag.StringVar(&opt.Since, "since", "", "Only persist rows with ReleaseDate >= since (YYYY-MM-DD).")
 	pflag.StringVar(&opt.LogLevel, "log-level", "", "Override log level (debug/info/warn/error).")
 	pflag.StringVar(&opt.LogFile, "log-file", "", "Override log file path.")
+	pflag.BoolVar(&opt.NotifyLatest, "notify-latest", false, "Send email with the latest CU/GDR per SQL Server version (from DB).")
 	{
 		var v string
 		pflag.StringVar(&v, "follow-kb", "", "Override follow KB links (true/false). Empty uses config.")
@@ -254,6 +256,15 @@ func main() {
 	}
 	if err := notify.SendNewReleases(emailCfg, newReleases); err != nil {
 		log.Error("failed to send notification email", logging.E(err))
+	}
+
+	if opt.NotifyLatest {
+		latest, err := repo.GetLatestBuilds(ctx)
+		if err != nil {
+			log.Error("failed to query latest builds", logging.E(err))
+		} else if err := notify.SendLatestBuilds(emailCfg, latest); err != nil {
+			log.Error("failed to send latest-builds notification email", logging.E(err))
+		}
 	}
 }
 

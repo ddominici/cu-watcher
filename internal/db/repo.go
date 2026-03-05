@@ -235,6 +235,59 @@ func insertKbFilesBatch(ctx context.Context, tx *sql.Tx, batch []parse.KbFileRec
 	return err
 }
 
+// GetLatestBuilds returns the most recent build row (by ReleaseDate) from every
+// CU_Builds and GDR_Builds topic table found in the schema.
+func (r *Repository) GetLatestBuilds(ctx context.Context) ([]parse.BuildRow, error) {
+	const listQ = `SELECT name FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND (name LIKE 'Sql%_CU_Builds' OR name LIKE 'Sql%_GDR_Builds')`
+	trows, err := r.db.QueryContext(ctx, listQ)
+	if err != nil {
+		return nil, err
+	}
+	defer trows.Close()
+
+	var tables []string
+	for trows.Next() {
+		var name string
+		if err := trows.Scan(&name); err != nil {
+			return nil, err
+		}
+		tables = append(tables, name)
+	}
+	if err := trows.Err(); err != nil {
+		return nil, err
+	}
+
+	var result []parse.BuildRow
+	for _, table := range tables {
+		t := SanitizeIdentifier(table)
+		q := fmt.Sprintf(
+			`SELECT TOP 1 MajorVersion, Topic, UpdateName, SqlBuild, KbNumber, KbUrl, ReleaseDate`+
+				` FROM dbo.%s WHERE ReleaseDate IS NOT NULL ORDER BY ReleaseDate DESC`, t)
+		row := r.db.QueryRowContext(ctx, q)
+
+		var br parse.BuildRow
+		var topic, updateName, sqlBuild, kbNumber, kbURL sql.NullString
+		var releaseDate sql.NullTime
+		if err := row.Scan(&br.MajorVersion, &topic, &updateName, &sqlBuild, &kbNumber, &kbURL, &releaseDate); err != nil {
+			if err == sql.ErrNoRows {
+				continue
+			}
+			return nil, err
+		}
+		br.Topic = topic.String
+		br.UpdateName = updateName.String
+		br.SqlBuild = sqlBuild.String
+		br.KbNumber = kbNumber.String
+		br.KbURL = kbURL.String
+		if releaseDate.Valid {
+			t := releaseDate.Time
+			br.ReleaseDate = &t
+		}
+		result = append(result, br)
+	}
+	return result, nil
+}
+
 func nullStr(s string) any {
 	if s == "" {
 		return nil
