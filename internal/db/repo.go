@@ -46,7 +46,7 @@ func (r *Repository) InitSchema(ctx context.Context) error {
 func (r *Repository) SaveRawPage(ctx context.Context, p *httpx.RawPage) error {
 	// Skip insert when the exact same content (SourceKey+SHA256) already exists.
 	const q = `
-IF NOT EXISTS (SELECT 1 FROM dbo.RawPages WHERE SourceKey=@p1 AND Sha256=@p9)
+IF NOT EXISTS (SELECT 1 FROM dbo.RawPages WHERE SourceKey=@p1 AND Sha256=@p8)
   INSERT INTO dbo.RawPages(SourceKey, Url, RetrievedAtUtc, StatusCode, ETag, LastModified, ContentType, Sha256, Html)
   VALUES(@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9);
 `

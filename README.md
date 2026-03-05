@@ -1,31 +1,31 @@
 # cu-watcher
 
-Strumento Go che monitora e archivia i Cumulative Update (CU) e le patch GDR di SQL Server leggendo le pagine ufficiali Microsoft Learn, persistendo i dati su SQL Server e notificando via email le nuove release rilevate.
+A Go tool that monitors and archives SQL Server Cumulative Updates (CU) and GDR patches by reading the official Microsoft Learn pages, persisting data to SQL Server, and sending email notifications when new releases are detected.
 
 ---
 
-## Indice
+## Table of Contents
 
-- [Requisiti](#requisiti)
-- [Installazione](#installazione)
-- [Configurazione](#configurazione)
-- [Utilizzo](#utilizzo)
-- [Architettura](#architettura)
-- [Schema del database](#schema-del-database)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Architecture](#architecture)
+- [Database Schema](#database-schema)
 
 ---
 
-## Requisiti
+## Requirements
 
-| Componente | Versione minima |
+| Component | Minimum Version |
 |---|---|
 | Go | 1.24 |
 | SQL Server | 2017+ |
-| Connettività | accesso HTTPS a `learn.microsoft.com` e `download.microsoft.com` |
+| Connectivity | HTTPS access to `learn.microsoft.com` and `download.microsoft.com` |
 
 ---
 
-## Installazione
+## Installation
 
 ```bash
 git clone <repo-url>
@@ -35,22 +35,22 @@ go build -o cu-watcher ./cmd
 
 ---
 
-## Configurazione
+## Configuration
 
-La configurazione è divisa in due file:
+Configuration is split into two files:
 
-| File | Contenuto | Committare? |
+| File | Contents | Commit? |
 |---|---|---|
-| `config.yaml` | parametri non sensibili | ✅ sì |
-| `.env` | credenziali e segreti | ❌ **mai** |
+| `config.yaml` | Non-sensitive parameters | ✅ yes |
+| `.env` | Credentials and secrets | ❌ **never** |
 
-### 1. Creare il file .env
+### 1. Create the .env file
 
 ```bash
 cp .env.example .env
 ```
 
-Compilare i valori nel file `.env`:
+Fill in the values in `.env`:
 
 ```dotenv
 # Database
@@ -64,22 +64,22 @@ EMAIL_USERNAME=smtp-user@example.com
 EMAIL_PASSWORD=smtp-password
 ```
 
-Il file `.env` viene cercato nella stessa directory del file di configurazione YAML. Le variabili già presenti nell'ambiente di sistema hanno sempre la precedenza sul file `.env`.
+The `.env` file is looked up in the same directory as the YAML config file. Variables already present in the system environment always take precedence over `.env`.
 
-### 2. Adattare config.yaml
+### 2. Adapt config.yaml
 
 ```yaml
 db:
-  connectionString: "${DB_CONNECTION_STRING}"   # valore da .env
+  connectionString: "${DB_CONNECTION_STRING}"   # value from .env
 
 scraper:
   userAgent: "CUWatcher/1.0"
   timeoutSeconds: 60
   maxConcurrency: 4
   delayBetweenRequestsMs: 250
-  followKbLinks: true        # scarica e analizza ogni articolo KB collegato
-  maxKbToFetch: 500          # limite articoli KB per singola esecuzione
-  since: "2017-01-01"        # esclude righe con ReleaseDate precedente
+  followKbLinks: true        # download and parse each linked KB article
+  maxKbToFetch: 500          # KB article limit per run
+  since: "2017-01-01"        # exclude rows with ReleaseDate earlier than this
 
 sources:
   - key: "sql2022"
@@ -88,7 +88,7 @@ sources:
   - key: "sql2019"
     majorVersion: 2019
     url: "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/sqlserver-2019/build-versions"
-  # aggiungere ulteriori versioni seguendo lo stesso schema
+  # add further versions following the same pattern
 
 logging:
   level: "info"              # debug | info | warn | error
@@ -98,146 +98,146 @@ logging:
   maxAgeDays: 14
 
 email:
-  enabled: false             # impostare true per abilitare le notifiche
+  enabled: false             # set to true to enable notifications
   from: "${EMAIL_FROM}"
   to:
     - "${EMAIL_TO}"
   smtpHost: "${EMAIL_SMTP_HOST}"
-  smtpPort: 465              # 587 = STARTTLS, 465 = TLS implicito
+  smtpPort: 465              # 587 = STARTTLS, 465 = implicit TLS
   username: "${EMAIL_USERNAME}"
   password: "${EMAIL_PASSWORD}"
-  useTLS: true               # true per TLS implicito (porta 465)
+  useTLS: true               # true for implicit TLS (port 465)
 ```
 
-### Parametri SMTP
+### SMTP Parameters
 
-| `smtpPort` | `useTLS` | Protocollo |
+| `smtpPort` | `useTLS` | Protocol |
 |---|---|---|
 | 587 | `false` | STARTTLS |
-| 465 | `true` | TLS implicito |
+| 465 | `true` | Implicit TLS |
 
 ---
 
-## Utilizzo
+## Usage
 
-### Prima esecuzione — creazione tabelle
+### First run — create tables
 
 ```bash
 ./cu-watcher --config config.yaml --init-db
 ```
 
-### Esecuzione normale
+### Normal run
 
 ```bash
 ./cu-watcher --config config.yaml
 ```
 
-### Opzioni da riga di comando
+### Command-line flags
 
-Tutti i flag sovrascrivono il valore nel file di configurazione.
+All flags override the corresponding value in the config file.
 
-| Flag | Default | Descrizione |
+| Flag | Default | Description |
 |---|---|---|
-| `--config` | `config.yaml` | Percorso del file di configurazione (yaml/json) |
-| `--connection` | *(dal config)* | Override della connection string SQL Server |
-| `--init-db` | `false` | Crea le tabelle base se non esistono |
-| `--only` | *(tutte)* | Fonti da processare, es. `sql2022,sql2019` |
-| `--follow-kb` | *(dal config)* | Override follow KB links (`true`/`false`) |
-| `--max-kb` | *(dal config)* | Override numero massimo KB da scaricare |
-| `--since` | *(dal config)* | Filtra righe con `ReleaseDate >= YYYY-MM-DD` |
-| `--log-level` | *(dal config)* | Override livello di log |
-| `--log-file` | *(dal config)* | Override percorso file di log |
+| `--config` | `config.yaml` | Path to the configuration file (yaml/json) |
+| `--connection` | *(from config)* | Override the SQL Server connection string |
+| `--init-db` | `false` | Create base tables if they do not exist |
+| `--only` | *(all)* | Sources to process, e.g. `sql2022,sql2019` |
+| `--follow-kb` | *(from config)* | Override follow KB links (`true`/`false`) |
+| `--max-kb` | *(from config)* | Override maximum number of KB articles to download |
+| `--since` | *(from config)* | Filter rows with `ReleaseDate >= YYYY-MM-DD` |
+| `--log-level` | *(from config)* | Override log level |
+| `--log-file` | *(from config)* | Override log file path |
 
-### Esempi
+### Examples
 
 ```bash
-# Processa solo SQL Server 2022, con log verboso
+# Process only SQL Server 2022 with verbose logging
 ./cu-watcher --only sql2022 --log-level debug
 
-# Forza il download dei soli articoli KB pubblicati dopo gennaio 2025
+# Download only KB articles published after January 2025
 ./cu-watcher --since 2025-01-01 --follow-kb=true --max-kb 100
 
-# Usa una connection string diversa senza modificare il config
+# Use a different connection string without changing the config
 ./cu-watcher --connection "sqlserver://sa:pass@localhost?database=test&trustservercertificate=true"
 ```
 
-### Schedulazione (Linux/macOS)
+### Scheduling (Linux/macOS)
 
 ```cron
-# Esegue ogni giorno alle 06:00
+# Run every day at 06:00
 0 6 * * * /opt/cu-watcher/cu-watcher --config /opt/cu-watcher/config.yaml >> /var/log/cu-watcher.log 2>&1
 ```
 
-> Le variabili d'ambiente definite nel `.env` vengono caricate automaticamente. In alternativa è possibile esportarle nell'ambiente del processo (es. tramite systemd `EnvironmentFile=`).
+> Variables defined in `.env` are loaded automatically. Alternatively, export them into the process environment (e.g. via systemd `EnvironmentFile=`).
 
 ---
 
-## Architettura
+## Architecture
 
 ```
 cu-watcher/
-├── .env.example                 # template variabili d'ambiente (da copiare in .env)
-├── config.yaml                  # configurazione non sensibile
+├── .env.example                 # environment variable template (copy to .env)
+├── config.yaml                  # non-sensitive configuration
 ├── cmd/
-│   └── main.go                  # entrypoint, orchestrazione del flusso
+│   └── main.go                  # entrypoint, execution flow orchestration
 └── internal/
     ├── config/
-    │   └── config.go            # Load(): carica .env, espande ${VAR}, parsing YAML
+    │   └── config.go            # Load(): reads .env, expands ${VAR}, parses YAML
     ├── httpx/
-    │   └── client.go            # HTTP client con retry (429/5xx), SHA256, logging
+    │   └── client.go            # HTTP client with retry (429/5xx), SHA256, logging
     ├── parse/
     │   ├── models.go            # BuildRow, KbArticle, KbFileRecord
-    │   ├── build_versions.go    # parser pagine "build versions" di Microsoft Learn
-    │   ├── kb_article.go        # parser articoli KB (titolo, sezioni, link, date)
-    │   ├── kb_files.go          # estrazione link CSV e parsing file list per KB
+    │   ├── build_versions.go    # parser for Microsoft Learn "build versions" pages
+    │   ├── kb_article.go        # parser for KB articles (title, sections, links, dates)
+    │   ├── kb_files.go          # CSV link extraction and KB file list parsing
     │   └── util.go              # helpers: clean, parseLearnDate, absURL, ...
     ├── db/
-    │   ├── repo.go              # Repository: tutte le operazioni sul database
-    │   ├── batch_insert.go      # INSERT multi-row batched per BuildRow
-    │   ├── schema.go            # DDL delle tabelle base (baseSchemaSQL)
-    │   └── sanitize.go          # sanitizzazione identificatori SQL
+    │   ├── repo.go              # Repository: all database operations
+    │   ├── batch_insert.go      # batched multi-row INSERT for BuildRow
+    │   ├── schema.go            # DDL for base tables (baseSchemaSQL)
+    │   └── sanitize.go          # SQL identifier sanitization
     ├── logging/
-    │   └── logging.go           # zap logger (console + file rotante via lumberjack)
+    │   └── logging.go           # zap logger (console + rotating file via lumberjack)
     └── notify/
-        └── email.go             # notifica email SMTP per nuove release
+        └── email.go             # SMTP email notification for new releases
 ```
 
-### Flusso di esecuzione
+### Execution flow
 
 ```
 main()
  │
- ├─ config.Load() → legge .env → espande ${VAR} → parsing YAML
+ ├─ config.Load() → reads .env → expands ${VAR} → parses YAML
  │
- ├─ Per ogni source (sql2022, sql2019, …)
- │   ├─ GET pagina "build-versions"
- │   ├─ SaveRawPage → dbo.RawPages (skip se SHA256 già presente)
+ ├─ For each source (sql2022, sql2019, …)
+ │   ├─ GET "build-versions" page
+ │   ├─ SaveRawPage → dbo.RawPages (skip if SHA256 already present)
  │   ├─ ParseBuildVersions → []BuildRow
- │   ├─ Per ogni topic table (CU_Builds, GDR_Builds, …)
+ │   ├─ For each topic table (CU_Builds, GDR_Builds, …)
  │   │   ├─ EnsureTopicTable → CREATE TABLE IF NOT EXISTS
- │   │   ├─ FindNewBuildRows → righe non ancora nel DB (dedup per KbNumber)
+ │   │   ├─ FindNewBuildRows → rows not yet in DB (dedup by KbNumber)
  │   │   └─ InsertBuildRowsBatched → dbo.Sql{version}_{topic}
  │   └─ ExtractKbLinks → kbQueue
  │
- ├─ Per ogni KB in kbQueue (fino a maxKbToFetch)
- │   ├─ GET articolo KB
+ ├─ For each KB in kbQueue (up to maxKbToFetch)
+ │   ├─ GET KB article
  │   ├─ SaveRawPage → dbo.RawPages
  │   ├─ ParseKbArticle → KbArticle
  │   ├─ UpsertKbArticle → dbo.KbArticles
- │   ├─ HasKbFiles? → skip se già presenti
- │   ├─ ExtractKbFilesCSVLink → URL del CSV file list
- │   ├─ GET CSV da download.microsoft.com
- │   ├─ ParseKbFilesCSV → []KbFileRecord (strip BOM UTF-8)
+ │   ├─ HasKbFiles? → skip if already present
+ │   ├─ ExtractKbFilesCSVLink → CSV file list URL
+ │   ├─ GET CSV from download.microsoft.com
+ │   ├─ ParseKbFilesCSV → []KbFileRecord (strip UTF-8 BOM)
  │   └─ InsertKbFileRecords → dbo.KbPackageFiles
  │
- └─ SendNewReleases → email SMTP (solo se enabled e ci sono nuove righe)
+ └─ SendNewReleases → SMTP email (only if enabled and new rows exist)
 ```
 
-### Gestione segreti
+### Secrets management
 
 ```
-.env (non committato)          config.yaml (committato)
-─────────────────────          ────────────────────────
+.env (not committed)           config.yaml (committed)
+────────────────────           ───────────────────────
 DB_CONNECTION_STRING=…    →    connectionString: "${DB_CONNECTION_STRING}"
 EMAIL_USERNAME=…          →    username: "${EMAIL_USERNAME}"
 EMAIL_PASSWORD=…          →    password: "${EMAIL_PASSWORD}"
@@ -246,44 +246,44 @@ EMAIL_TO=…                →    to: ["${EMAIL_TO}"]
 EMAIL_SMTP_HOST=…         →    smtpHost: "${EMAIL_SMTP_HOST}"
 ```
 
-Priorità di risoluzione: **env di sistema** > `.env` > valore letterale in `config.yaml`.
+Resolution priority: **system environment** > `.env` > literal value in `config.yaml`.
 
-### Deduplicazione
+### Deduplication
 
-- **RawPages**: indice unico su `(SourceKey, SHA256)`. Se la pagina non è cambiata l'insert viene saltato (`IF NOT EXISTS`).
-- **BuildRow**: `FindNewBuildRows` interroga il DB per i `KbNumber` già presenti prima di inserire; solo le righe nuove vengono accumulate per la notifica email.
-- **KbPackageFiles**: `HasKbFiles` verifica l'esistenza di record per quel `KbNumber` prima di scaricare il CSV.
+- **RawPages**: unique index on `(SourceKey, SHA256)`. If the page has not changed, the insert is skipped (`IF NOT EXISTS`).
+- **BuildRow**: `FindNewBuildRows` queries the DB for already-present `KbNumber` values before inserting; only new rows are accumulated for the email notification.
+- **KbPackageFiles**: `HasKbFiles` checks for existing records for that `KbNumber` before downloading the CSV.
 
-### Retry e throttling
+### Retry and throttling
 
-L'HTTP client esegue fino a **5 tentativi** con backoff esponenziale (`attempt² × 300ms`) su errori di rete e risposte `429` / `5xx`. Il parametro `delayBetweenRequestsMs` introduce una pausa fissa tra ogni richiesta.
+The HTTP client retries up to **5 times** with exponential backoff (`attempt² × 300ms`) on network errors and `429` / `5xx` responses. The `delayBetweenRequestsMs` parameter introduces a fixed pause between every request.
 
 ---
 
-## Schema del database
+## Database Schema
 
 ### `dbo.RawPages`
 
-Snapshot grezzo di ogni pagina scaricata.
+Raw snapshot of every downloaded page.
 
-| Colonna | Tipo | Note |
+| Column | Type | Notes |
 |---|---|---|
 | `Id` | BIGINT IDENTITY | PK |
-| `SourceKey` | NVARCHAR(200) | es. `sql2022-build-versions`, `kb-KB5078297` |
+| `SourceKey` | NVARCHAR(200) | e.g. `sql2022-build-versions`, `kb-KB5078297` |
 | `Url` | NVARCHAR(1000) | |
 | `RetrievedAtUtc` | DATETIME2(3) | |
 | `StatusCode` | INT | |
 | `ETag` | NVARCHAR(200) | |
 | `LastModified` | NVARCHAR(200) | |
 | `ContentType` | NVARCHAR(200) | |
-| `Sha256` | CHAR(64) | hash del body; indice unico con SourceKey |
-| `Html` | NVARCHAR(MAX) | body grezzo della risposta |
+| `Sha256` | CHAR(64) | body hash; unique index with SourceKey |
+| `Html` | NVARCHAR(MAX) | raw response body |
 
-### `dbo.Sql{version}_{topic}` (es. `dbo.Sql2022_CU_Builds`)
+### `dbo.Sql{version}_{topic}` (e.g. `dbo.Sql2022_CU_Builds`)
 
-Una tabella per combinazione `(versione SQL, tipo aggiornamento)`. I topic possibili sono: `CU_Builds`, `GDR_Builds`, `AzureConnectPack_Builds`, `Other_Builds`.
+One table per `(SQL version, update type)` combination. Possible topics: `CU_Builds`, `GDR_Builds`, `AzureConnectPack_Builds`, `Other_Builds`.
 
-| Colonna | Tipo |
+| Column | Type |
 |---|---|
 | `Id` | BIGINT IDENTITY PK |
 | `MajorVersion` | INT |
@@ -302,9 +302,9 @@ Una tabella per combinazione `(versione SQL, tipo aggiornamento)`. I topic possi
 
 ### `dbo.KbArticles`
 
-Contenuto completo di ogni articolo KB.
+Full content of each KB article.
 
-| Colonna | Tipo |
+| Column | Type |
 |---|---|
 | `KbNumber` | NVARCHAR(50) PK |
 | `Url` | NVARCHAR(1000) |
@@ -320,29 +320,29 @@ Contenuto completo di ogni articolo KB.
 
 ### `dbo.KbPackageFiles`
 
-File individuali inclusi in ogni pacchetto CU/GDR, estratti dal CSV pubblicato da Microsoft.
+Individual files included in each CU/GDR package, extracted from the CSV published by Microsoft.
 
-| Colonna | Tipo | Note |
+| Column | Type | Notes |
 |---|---|---|
 | `Id` | BIGINT IDENTITY PK | |
-| `KbNumber` | NVARCHAR(50) | FK logico → KbArticles |
-| `Component` | NVARCHAR(200) | es. `SQL Server 2022 Database Engine` |
-| `FileName` | NVARCHAR(500) | es. `sqlservr.exe` |
-| `FileVersion` | NVARCHAR(50) | es. `2022.160.4236.2` |
+| `KbNumber` | NVARCHAR(50) | logical FK → KbArticles |
+| `Component` | NVARCHAR(200) | e.g. `SQL Server 2022 Database Engine` |
+| `FileName` | NVARCHAR(500) | e.g. `sqlservr.exe` |
+| `FileVersion` | NVARCHAR(50) | e.g. `2022.160.4236.2` |
 | `FileSizeBytes` | BIGINT | |
-| `FileDate` | DATE | data di compilazione del file |
+| `FileDate` | DATE | file build date |
 | `Platform` | NVARCHAR(20) | `x64`, `x86`, `n/a` |
 | `RetrievedAtUtc` | DATETIME2(3) | |
 
 ---
 
-## Dipendenze principali
+## Dependencies
 
-| Libreria | Utilizzo |
+| Library | Usage |
 |---|---|
-| `github.com/PuerkitoBio/goquery` | parsing HTML delle pagine Microsoft Learn |
-| `github.com/denisenkom/go-mssqldb` | driver SQL Server per `database/sql` |
-| `github.com/spf13/pflag` | parsing argomenti CLI |
-| `go.uber.org/zap` | logging strutturato ad alte prestazioni |
-| `gopkg.in/natefinch/lumberjack.v2` | rotazione automatica dei file di log |
-| `gopkg.in/yaml.v3` | parsing file di configurazione YAML/JSON |
+| `github.com/PuerkitoBio/goquery` | HTML parsing of Microsoft Learn pages |
+| `github.com/denisenkom/go-mssqldb` | SQL Server driver for `database/sql` |
+| `github.com/spf13/pflag` | CLI argument parsing |
+| `go.uber.org/zap` | high-performance structured logging |
+| `gopkg.in/natefinch/lumberjack.v2` | automatic log file rotation |
+| `gopkg.in/yaml.v3` | YAML/JSON config file parsing |
