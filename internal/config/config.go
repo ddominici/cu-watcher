@@ -12,6 +12,7 @@ import (
 type Config struct {
 	DB struct {
 		ConnectionString string `yaml:"connectionString"`
+		WindowsAuth      bool   `yaml:"windowsAuth"`
 	} `yaml:"db"`
 
 	Scraper struct {

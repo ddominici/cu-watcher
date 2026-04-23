@@ -21,16 +21,17 @@ import (
 )
 
 type cliOptions struct {
-	ConfigPath string
-	Connection string
-	InitDB     bool
-	Only       string
-	FollowKB     *bool
-	MaxKB        int
-	Since        string
-	LogLevel     string
-	LogFile      string
+	ConfigPath  string
+	Connection  string
+	InitDB      bool
+	Only        string
+	FollowKB    *bool
+	MaxKB       int
+	Since       string
+	LogLevel    string
+	LogFile     string
 	NotifyLatest bool
+	WindowsAuth bool
 }
 
 func main() {
@@ -45,6 +46,7 @@ func main() {
 	pflag.StringVar(&opt.LogLevel, "log-level", "", "Override log level (debug/info/warn/error).")
 	pflag.StringVar(&opt.LogFile, "log-file", "", "Override log file path.")
 	pflag.BoolVar(&opt.NotifyLatest, "notify-latest", false, "Send email with the latest CU/GDR per SQL Server version (from DB).")
+	pflag.BoolVar(&opt.WindowsAuth, "windows-auth", false, "Use Windows Authentication (IntegratedSecurity=true). Overrides config.")
 	{
 		var v string
 		pflag.StringVar(&v, "follow-kb", "", "Override follow KB links (true/false). Empty uses config.")
@@ -78,6 +80,12 @@ func main() {
 	}
 	if opt.Since != "" {
 		cfg.Scraper.Since = opt.Since
+	}
+	if opt.WindowsAuth {
+		cfg.DB.WindowsAuth = true
+	}
+	if cfg.DB.WindowsAuth {
+		cfg.DB.ConnectionString = withIntegratedSecurity(cfg.DB.ConnectionString)
 	}
 
 	log := logging.New(logging.Config{
@@ -273,4 +281,22 @@ func exitOnErr(err error) {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
+}
+
+// withIntegratedSecurity appends IntegratedSecurity=true to conn if it is not
+// already present. Supports both the URL form (sqlserver://...) and the
+// semicolon-separated DSN form.
+func withIntegratedSecurity(conn string) string {
+	lower := strings.ToLower(conn)
+	if strings.Contains(lower, "integratedsecurity") || strings.Contains(lower, "integrated security") {
+		return conn
+	}
+	if strings.HasPrefix(conn, "sqlserver://") {
+		if strings.Contains(conn, "?") {
+			return conn + "&IntegratedSecurity=true"
+		}
+		return conn + "?IntegratedSecurity=true"
+	}
+	// DSN / key=value format
+	return conn + ";IntegratedSecurity=true"
 }

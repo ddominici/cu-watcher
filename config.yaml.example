@@ -1,5 +1,6 @@
 db:
   connectionString: "${DB_CONNECTION_STRING}"
+  windowsAuth: false   # true = use Windows Authentication (SSPI); omit user/password from connectionString
 
 scraper:
   userAgent: "CUWatcher/1.0 (+contact: info@yourdomain.com)"
