@@ -1,0 +1,25 @@
+# Variabili d'ambiente e segreti – NON committare
+.env
+config.yaml
+
+# Binario compilato
+cu-watcher
+build/
+
+# Log
+logs/
+
+# Docs
+docs/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# CLAUDE
+CLAUDE.md
+.claude
